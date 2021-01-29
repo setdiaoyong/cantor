@@ -36,7 +36,7 @@ Q: 使用步骤
 Q: repo 目录说明
 |____resource           图床资源目录
 | |____database.json    上传文件记录
-|____backend            后端代码目录  
+|____backend            后端代码目录
 |____frontend           前端代码目录
 |____assets             个人资源目录
 ```
