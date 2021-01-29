@@ -40,6 +40,8 @@ func (a *App) WailsInit(runtime *wails.Runtime) error {
 	configPath := tools.GetConfigPath()
 	a.ConfigFile = configPath + "/config.json"
 	a.ListFile = configPath + "/database.json"
+	a.List = []map[string]string{}
+
 	configContent := file.Read(a.ConfigFile)
 	if configContent != "" {
 		json.Unmarshal([]byte(configContent), &a.Git)
@@ -108,9 +110,9 @@ func (a *App) SetConfig(content string) *configs.Resp {
 
 // --------------------------------
 
-// GetUploadList 获取上传文件列表
-func (a *App) GetUploadList() *configs.Resp {
-	a.Log.Info("GetUploadList count: ", len(a.List))
+// GetList 获取文件列表
+func (a *App) GetList() *configs.Resp {
+	a.Log.Info("GetList count: ", len(a.List))
 	return tools.Success(a.List)
 }
 

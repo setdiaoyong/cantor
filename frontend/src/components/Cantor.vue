@@ -258,8 +258,8 @@ export default {
     },
     listInit: function () {
       this.loading = true;
-      window.backend.App.GetUploadList().then((resp) => {
-        console.log("GetUploadList", resp);
+      window.backend.App.GetList().then((resp) => {
+        console.log("GetList", resp);
         this.loading = false;
         if (resp.code != 0) {
           this.$message.error(resp.message);
