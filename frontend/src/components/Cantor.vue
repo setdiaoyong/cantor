@@ -38,14 +38,14 @@
           label="名称"
           prop="file_name"
           :render-header="
-            (h, data) => renderHeader(h, data, '双击文件名称进行编辑')
+            (h, data) => renderHeader(h, data, '双击文件名称可进行编辑')
           "
         >
           <template slot-scope="scope">
             <span v-if="scope.row.is_edit">
               <el-input
                 maxlength="50"
-                placeholder="请输入名称"
+                placeholder="请输入文件名称"
                 show-word-limit
                 ref="file_name"
                 v-model="scope.row.file_name"
@@ -248,12 +248,7 @@ export default {
           this.drawerConfig = true;
         }
         this.version = resp.data.version;
-        this.version.link =
-          "https://github.com/evercyan/cantor/releases/download/" +
-          this.version.last +
-          "/Cantor-" +
-          this.version.last +
-          ".dmg";
+        this.version.link = `https://github.com/evercyan/cantor/releases/download/${this.version.last}/Cantor-${this.version.last}.dmg`;
       });
     },
     listInit: function () {

@@ -165,6 +165,7 @@ func (a *App) UploadFile() *configs.Resp {
 	a.List = append([]map[string]string{fileInfo}, a.List...)
 	go a.updateList(a.List)
 
+	a.Log.Info("UploadFile success")
 	return tools.Success("操作成功")
 }
 
@@ -172,6 +173,8 @@ func (a *App) UploadFile() *configs.Resp {
 
 // DeleteFile 删除文件
 func (a *App) DeleteFile(filePath string) *configs.Resp {
+	a.Log.Info("DeleteFile filePath: ", filePath)
+
 	// 删除文件
 	deleteErr := a.Git.Delete(filePath)
 	if deleteErr != nil {
@@ -192,16 +195,20 @@ func (a *App) DeleteFile(filePath string) *configs.Resp {
 	a.List = list
 	go a.updateList(a.List)
 
+	a.Log.Info("DeleteFile success")
 	return tools.Success("操作成功")
 }
 
 // CopyFileUrl 复制链接到粘贴板
 func (a *App) CopyFileUrl(fileUrl string) *configs.Resp {
 	a.Log.Info("CopyFileUrl fileUrl: ", fileUrl)
+
 	err := clipboard.Set(fileUrl)
 	if err != nil {
 		return tools.Fail(err.Error())
 	}
+
+	a.Log.Info("CopyFileUrl success")
 	return tools.Success("已复制到粘贴板")
 }
 
@@ -217,5 +224,6 @@ func (a *App) UpdateFileName(filePath string, fileName string) *configs.Resp {
 	a.List = list
 	go a.updateList(a.List)
 
+	a.Log.Info("UpdateFileName success")
 	return tools.Success("操作成功")
 }
