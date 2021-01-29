@@ -11,8 +11,8 @@ import (
 var log *logrus.Logger
 var once sync.Once
 
-// NewLog ...
-func NewLog() *logrus.Logger {
+// NewLogger ...
+func NewLogger() *logrus.Logger {
 	once.Do(func() {
 		log = logrus.New()
 		file, err := os.OpenFile(GetLogFilePath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)

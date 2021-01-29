@@ -11,11 +11,11 @@ import (
 
 // GetConfigPath ...
 func GetConfigPath() string {
-	user, err := user.Current()
+	userPath, err := user.Current()
 	if err != nil {
 		panic("获取应用配置目录失败: " + err.Error())
 	}
-	configPath := fmt.Sprintf("%s/.%s", user.HomeDir, configs.AppName)
+	configPath := fmt.Sprintf("%s/.%s", userPath.HomeDir, configs.AppName)
 	if !file.IsExist(configPath) {
 		os.Mkdir(configPath, os.ModePerm)
 	}

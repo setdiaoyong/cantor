@@ -107,7 +107,7 @@ func (g *Git) LastVersion() string {
 // UploadFileList ...
 func (g *Git) UploadFileList() []map[string]string {
 	resp, _ := g.Get(configs.GitDBFile)
-	list := []map[string]string{}
+	var list []map[string]string
 	if resp != "" {
 		content := crypto.Base64Decode(j.Json(resp).Key("content").ToString())
 		json.Unmarshal([]byte(content), &list)

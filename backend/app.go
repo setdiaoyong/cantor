@@ -20,18 +20,39 @@ import (
 
 // App ...
 type App struct {
-	RT     *wails.Runtime
-	Log    *logrus.Logger
-	Git    git.Git
-	Config string
+	RT         *wails.Runtime
+	Log        *logrus.Logger
+	Git        git.Git
+	ConfigFile string
+	ListFile   string
+	List       []map[string]string
 }
 
 // WailsInit ...
 func (a *App) WailsInit(runtime *wails.Runtime) error {
 	a.RT = runtime
-	a.Log = tools.NewLog()
+
+	// 日志
+	a.Log = tools.NewLogger()
 	a.Log.Info("WailsInit")
-	a.InitConfig()
+
+	// 配置
+	configPath := tools.GetConfigPath()
+	a.ConfigFile = configPath + "/config.json"
+	a.ListFile = configPath + "/database.json"
+	configContent := file.Read(a.ConfigFile)
+	if configContent != "" {
+		json.Unmarshal([]byte(configContent), &a.Git)
+		// 列表
+		listContent := file.Read(a.ListFile)
+		if listContent == "" {
+			a.List = a.Git.UploadFileList()
+			file.Write(a.ListFile, crypto.JsonEncode(a.List))
+		} else {
+			json.Unmarshal([]byte(listContent), &a.List)
+		}
+	}
+
 	return nil
 }
 
@@ -41,17 +62,24 @@ func (a *App) WailsShutdown() {
 	return
 }
 
-// InitConfig ...
-func (a *App) InitConfig() {
-	a.Config = tools.GetConfigPath() + "/config.json"
-	a.Log.Info("InitConfig config: ", a.Config)
-	content := file.Read(a.Config)
-	a.Log.Info("InitConfig content: ", content)
-	if content == "" {
-		return
+// --------------------------------
+
+func (a *App) updateList(list []map[string]string) error {
+	content := crypto.JsonEncode(list)
+
+	// 更新本地文件
+	file.Write(a.ListFile, content)
+
+	// 更新仓库文件
+	updateListErr := a.Git.Update(configs.GitDBFile, content)
+	if updateListErr != nil {
+		a.Log.Error("updateListErr: ", updateListErr.Error())
 	}
-	json.Unmarshal([]byte(content), &a.Git)
+
+	return updateListErr
 }
+
+// --------------------------------
 
 // GetConfig 获取 git 配置和版本信息
 func (a *App) GetConfig() *configs.Resp {
@@ -62,7 +90,7 @@ func (a *App) GetConfig() *configs.Resp {
 			"last":    a.Git.LastVersion(),
 		},
 	}
-	a.Log.Info("GetConfig content: ", crypto.JsonEncode(resp))
+	a.Log.Info("GetConfig resp: ", resp)
 	return tools.Success(resp)
 }
 
@@ -72,21 +100,26 @@ func (a *App) SetConfig(content string) *configs.Resp {
 	if err := json.Unmarshal([]byte(content), &a.Git); err != nil {
 		return tools.Fail(err.Error())
 	}
-	if err := file.Write(a.Config, content); err != nil {
+	if err := file.Write(a.ConfigFile, content); err != nil {
 		return tools.Fail(err.Error())
 	}
 	return tools.Success("操作成功")
 }
 
+// --------------------------------
+
 // GetUploadList 获取上传文件列表
 func (a *App) GetUploadList() *configs.Resp {
-	return tools.Success(a.Git.UploadFileList())
+	a.Log.Info("GetUploadList count: ", len(a.List))
+	return tools.Success(a.List)
 }
+
+// --------------------------------
 
 // UploadFile 上传文件
 func (a *App) UploadFile() *configs.Resp {
 	selectFile := a.RT.Dialog.SelectFile()
-	a.Log.Info("UploadFile selectFile ", selectFile)
+	a.Log.Info("UploadFile selectFile: ", selectFile)
 	if selectFile == "" {
 		return tools.Fail("请选择图片文件")
 	}
@@ -126,19 +159,25 @@ func (a *App) UploadFile() *configs.Resp {
 		"file_url":  a.Git.Url(filePath),
 		"create_at": time.Now().Format("2006-01-02 15:04:05"),
 	}
-	a.Log.Info("UploadFile fileInfo: ", crypto.JsonEncode(fileInfo))
-	list := a.Git.UploadFileList()
-	list = append([]map[string]string{fileInfo}, list...)
-	updateErr := a.Git.Update(configs.GitDBFile, crypto.JsonEncode(list))
-	if updateErr != nil {
-		a.Log.Info("UploadFile updateErr: ", updateErr.Error())
-	}
+	a.Log.Info("UploadFile fileInfo: ", fileInfo)
+	a.List = append([]map[string]string{fileInfo}, a.List...)
+	go a.updateList(a.List)
+
 	return tools.Success("操作成功")
 }
 
+// --------------------------------
+
 // DeleteFile 删除文件
 func (a *App) DeleteFile(filePath string) *configs.Resp {
-	list := a.Git.UploadFileList()
+	// 删除文件
+	deleteErr := a.Git.Delete(filePath)
+	if deleteErr != nil {
+		return tools.Fail(deleteErr.Error())
+	}
+
+	// 更新数据文件
+	list := a.List
 	for i := 0; i < len(list); i++ {
 		if list[i]["file_path"] == filePath {
 			if i == len(list)-1 {
@@ -148,16 +187,9 @@ func (a *App) DeleteFile(filePath string) *configs.Resp {
 			}
 		}
 	}
-	// 更新数据文件
-	updateErr := a.Git.Update(configs.GitDBFile, crypto.JsonEncode(list))
-	if updateErr != nil {
-		return tools.Fail(updateErr.Error())
-	}
-	// 删除文件
-	deleteErr := a.Git.Delete(filePath)
-	if deleteErr != nil {
-		a.Log.Info("UploadFile deleteErr: ", deleteErr.Error())
-	}
+	a.List = list
+	go a.updateList(a.List)
+
 	return tools.Success("操作成功")
 }
 
@@ -173,17 +205,15 @@ func (a *App) CopyFileUrl(fileUrl string) *configs.Resp {
 
 // UpdateFileName 更新文件名称
 func (a *App) UpdateFileName(filePath string, fileName string) *configs.Resp {
-	a.Log.Info("UpdateFileName filePath: ", filePath, "fileName: ", fileName)
-	list := a.Git.UploadFileList()
+	a.Log.Infof("UpdateFileName filePath: %v; fileName: %v", filePath, fileName)
+	list := a.List
 	for i := 0; i < len(list); i++ {
 		if list[i]["file_path"] == filePath {
 			list[i]["file_name"] = fileName
 		}
 	}
-	// 更新数据文件
-	updateErr := a.Git.Update(configs.GitDBFile, crypto.JsonEncode(list))
-	if updateErr != nil {
-		return tools.Fail(updateErr.Error())
-	}
+	a.List = list
+	go a.updateList(a.List)
+
 	return tools.Success("操作成功")
 }
